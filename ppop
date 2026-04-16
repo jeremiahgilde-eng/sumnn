@@ -1,0 +1,173 @@
+using UnityEngine;
+
+public class WesternCombat : MonoBehaviour {
+    public GameObject bulletPrefab;
+    public Transform firePoint;
+    public float fireRate = 0.5f;
+    private float nextFireTime;
+
+    void Update() {
+        // Left click to shoot
+        if (Input.GetButtonDown("Fire1") && Time.time >= nextFireTime) {
+            Shoot();
+            nextFireTime = Time.time + fireRate;
+        }
+    }
+
+    void Shoot() {
+        Instantiate(bulletPrefab, firePoint.position, firePoint.rotation);
+        // Add recoil or sound effects here
+    }
+}
+using UnityEngine;
+
+public class HorseSystem : MonoBehaviour {
+    public Transform mountPoint;
+    public GameObject player;
+    private bool isRiding = false;
+
+    void Update() {
+        if (Input.GetKeyDown(KeyCode.E)) { // Press E to mount/dismount
+            if (!isRiding) Mount();
+            else Dismount();
+        }
+
+        if (isRiding) {
+            // Simple horse movement logic
+            float move = Input.GetAxis("Vertical") * 10f * Time.deltaTime;
+            float turn = Input.GetAxis("Horizontal") * 50f * Time.deltaTime;
+            transform.Translate(0, 0, move);
+            transform.Rotate(0, turn, 0);
+        }
+    }
+
+    void Mount() {
+        isRiding = true;
+        player.transform.SetParent(mountPoint);
+        player.transform.localPosition = Vector3.zero;
+        player.GetComponent<CharacterController>().enabled = false;
+    }
+
+    void Dismount() {
+        isRiding = false;
+        player.transform.SetParent(null);
+        player.GetComponent<CharacterController>().enabled = true;
+    }
+}
+using UnityEngine;
+using UnityEngine.AI;
+
+public class OutlawAI : MonoBehaviour {
+    public NavMeshAgent agent;
+    public Transform player;
+    public float chaseRange = 20f;
+
+    void Update() {
+        float distance = Vector3.Distance(player.position, transform.position);
+        if (distance <= chaseRange) {
+            agent.SetDestination(player.position);
+            // Add shooting logic when close enough
+        }
+    }
+}
+using UnityEngine;
+
+public class WesternPlayerController : MonoBehaviour {
+    [Header("Movement Settings")]
+    public float walkSpeed = 5f;
+    public float horseSpeed = 12f;
+    
+    [Header("References")]
+    public GameObject horseModel;
+    public Transform mountPoint;
+    
+    private bool isRiding = false;
+    private CharacterController controller;
+
+    void Start() {
+        controller = GetComponent<CharacterController>();
+    }
+
+    void Update() {
+        if (Input.GetKeyDown(KeyCode.F)) ToggleMount();
+
+        if (isRiding) HandleHorseMovement();
+        else HandleFootMovement();
+    }
+
+    void ToggleMount() {
+        float distance = Vector3.Distance(transform.position, horseModel.transform.position);
+        if (distance < 3f && !isRiding) {
+            isRiding = true;
+            transform.SetParent(mountPoint);
+            transform.localPosition = Vector3.zero;
+            controller.enabled = false; // Disable physics while on horse
+        } else if (isRiding) {
+            isRiding = false;
+            transform.SetParent(null);
+            controller.enabled = true;
+        }
+    }
+
+    void HandleFootMovement() {
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
+        Vector3 move = transform.right * x + transform.forward * z;
+        controller.Move(move * walkSpeed * Time.deltaTime);
+    }
+
+    void HandleHorseMovement() {
+        float move = Input.GetAxis("Vertical") * horseSpeed * Time.deltaTime;
+        float turn = Input.GetAxis("Horizontal") * 60f * Time.deltaTime;
+        horseModel.transform.Translate(0, 0, move);
+        horseModel.transform.Rotate(0, turn, 0);
+    }
+}
+using UnityEngine;
+
+public class RevolverSystem : MonoBehaviour {
+    public float damage = 25f;
+    public float range = 100f;
+    public ParticleSystem muzzleFlash;
+    public GameObject hitEffect;
+
+    void Update() {
+        if (Input.GetButtonDown("Fire1")) Shoot();
+    }
+
+    void Shoot() {
+        muzzleFlash.Play();
+        RaycastHit hit;
+        if (Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out hit, range)) {
+            // Check if we hit an enemy
+            EnemyHealth enemy = hit.transform.GetComponent<EnemyHealth>();
+            if (enemy != null) {
+                enemy.TakeDamage(damage);
+            }
+            // Spawn dust effect at hit point
+            Instantiate(hitEffect, hit.point, Quaternion.LookRotation(hit.normal));
+        }
+    }
+}
+using UnityEngine;
+using UnityEngine.AI;
+
+public class OutlawAI : MonoBehaviour {
+    public NavMeshAgent agent;
+    public Transform player;
+    public float health = 100f;
+
+    void Update() {
+        // Simple "Chase the Cowboy" logic
+        agent.SetDestination(player.position);
+    }
+
+    public void TakeDamage(float amount) {
+        health -= amount;
+        if (health <= 0) Die();
+    }
+
+    void Die() {
+        Destroy(gameObject); // Or trigger a ragdoll
+    }
+}
